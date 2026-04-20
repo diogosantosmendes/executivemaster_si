@@ -6,8 +6,8 @@ from datetime import datetime
 import io
 
 # Configs
-EMAIL = os.getenv("FAO_EMAIL", "teu_email@exemplo.com")
-PASSWORD = os.getenv("FAO_PASSWORD", "tua_password")
+EMAIL = os.getenv("FAO_EMAIL")
+PASSWORD = os.getenv("FAO_PASSWORD")
 
 HDFS_URL = "http://namenode:9870"
 BASE_HDFS_PATH = "/stock_management/fao_prices"
