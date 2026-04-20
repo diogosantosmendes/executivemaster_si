@@ -1,0 +1,156 @@
+services:
+  postgres-db:
+    image: postgres:17.4-alpine
+    container_name: postgres
+    restart: always
+    volumes:
+      - ./volumes/postgres:/var/lib/postgresql/data
+      - ./initdb.d:/docker-entrypoint-initdb.d
+    env_file:
+      - .env    
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    networks:
+      - market_network
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin
+    restart: always
+    volumes:
+      - ./volumes/pgadmin:/var/lib/pgadmin
+    env_file:
+      - .env    
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      - postgres-db
+    ports:
+      - "8081:80"
+    networks:
+      - market_network
+
+  namenode:
+    image: apache/hadoop:3.3.6
+    hostname: namenode
+    command: ["hdfs", "namenode"]
+    ports:
+      - 9870:9870
+    env_file:
+      - .env
+    environment:
+      ENSURE_NAMENODE_DIR: "/tmp/hadoop-root/dfs/name"
+    networks:
+      - market_network
+
+  datanode1:
+    image: apache/hadoop:3.3.6
+    command: ["hdfs", "datanode"]
+    volumes:
+    - ./volumes/hadoop_datanode1:/hadoop/dfs/data
+    env_file:
+      - .env
+    networks:
+      - market_network
+
+  datanode2:
+    image: apache/hadoop:3.3.6
+    command: ["hdfs", "datanode"]
+    volumes:
+    - ./volumes/hadoop_datanode2:/hadoop/dfs/data
+    env_file:
+      - .env
+    networks:
+      - market_network
+
+  datanode3:
+    image: apache/hadoop:3.3.6
+    command: ["hdfs", "datanode"]
+    volumes:
+    - ./volumes/hadoop_datanode3:/hadoop/dfs/data
+    env_file:
+      - .env
+    networks:
+      - market_network
+  
+  resourcemanager:
+    image: apache/hadoop:3.3.6
+    hostname: resourcemanager
+    command: ["yarn", "resourcemanager"]
+    ports:
+        - 8088:8088
+    env_file:
+      - .env
+    networks:
+      - market_network
+
+  nodemanager:
+    image: apache/hadoop:3.3.6
+    command: ["yarn", "nodemanager"]
+    env_file:
+      - .env
+    networks:
+      - market_network
+
+  ingestor-db-sales:
+    build:
+      context: ./ingestor_db
+      dockerfile: Dockerfile
+    container_name: db_ingestor_sales
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - INGESTOR_PERIODICITY=300
+      - DB_NAME=sales_logs
+    volumes:
+      - ./ingestor_db/last_sync_sales_logs.txt:/app/last_sync_sales_logs.txt
+    depends_on:
+      - postgres-db
+      - namenode
+    networks:
+      - market_network
+
+  ingestor-db-supplies:
+    build:
+      context: ./ingestor_db
+      dockerfile: Dockerfile
+    container_name: db_ingestor_supplies
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - INGESTOR_PERIODICITY=300
+      - DB_NAME=supplies_logs
+    volumes:
+      - ./ingestor_db/last_sync_supplies_logs.txt:/app/last_sync_supplies_logs.txt
+    depends_on:
+      - postgres-db
+      - namenode
+    networks:
+      - market_network
+  
+  ingestor-web:
+    build:
+      context: ./ingestor_web
+      dockerfile: Dockerfile
+    container_name: web_ingestor
+    restart: no
+    env_file:
+      - .env
+    volumes:
+      - ./ingestor_web/last_processed_year.txt:/app/last_processed_year.txt
+    depends_on:
+      - postgres-db
+      - namenode
+    networks:
+      - market_network
+
+networks:
+  market_network:
+    driver: bridge
